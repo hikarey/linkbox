@@ -58,3 +58,8 @@ create policy "links は誰でも更新できる"
 create policy "link_tags は誰でも削除できる"
   on link_tags for delete to anon
   using (true);
+
+-- 論理削除のための列と、URL重複禁止の作り直し
+alter table links add column deleted_at timestamptz;
+alter table links drop constraint links_url_key;
+create unique index links_url_active on links (url) where deleted_at is null;

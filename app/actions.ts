@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export async function addLink(formData: FormData) {
@@ -53,13 +54,14 @@ export async function addLink(formData: FormData) {
   revalidatePath("/");
 }
 
+// 削除（論理削除：deleted_at に今の日時を入れる）
 export async function deleteLink(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
 
   const { data, error } = await supabase
     .from("links")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", id)
     .select("id");
 
@@ -73,4 +75,24 @@ export async function deleteLink(formData: FormData) {
   }
 
   revalidatePath("/");
+  redirect(`/?deleted=${id}`);
+}
+
+// 元に戻す（deleted_at を空に戻す）
+export async function restoreLink(formData: FormData) {
+  const id = Number(formData.get("id"));
+  if (!id) return;
+
+  const { error } = await supabase
+    .from("links")
+    .update({ deleted_at: null })
+    .eq("id", id);
+
+  if (error) {
+    console.error("元に戻すのに失敗:", error.message);
+    return;
+  }
+
+  revalidatePath("/");
+  redirect("/");
 }
