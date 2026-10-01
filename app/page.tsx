@@ -13,9 +13,23 @@ function hostname(url: string) {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ tag?: string; deleted?: string }>;
+  searchParams: Promise<{ tag?: string | string[]; deleted?: string }>;
 }) {
   const { tag, deleted } = await searchParams;
+
+  // 選ばれているタグを、必ず配列の形にそろえる
+  const selected = tag === undefined ? [] : Array.isArray(tag) ? tag : [tag];
+
+  // タグを押したときの行き先（押したタグを追加 or 外す）
+  function toggleHref(name: string) {
+    const next = selected.includes(name)
+      ? selected.filter((n) => n !== name)
+      : [...selected, name];
+    if (next.length === 0) return "/";
+    const params = new URLSearchParams();
+    next.forEach((n) => params.append("tag", n));
+    return `/?${params.toString()}`;
+  }
 
   const { data: allTags } = await supabase
     .from("tags")
@@ -28,19 +42,31 @@ export default async function Home({
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
-  if (tag) {
-    const { data: tagRow } = await supabase
+  if (selected.length > 0) {
+    // 1. 選んだタグ名から id を調べる
+    const { data: tagRows } = await supabase
       .from("tags")
       .select("id")
-      .eq("name", tag)
-      .maybeSingle();
+      .in("name", selected);
+    const tagIds = (tagRows ?? []).map((t) => t.id);
 
+    // 2. それらのタグが付いている行を集める
     const { data: rows } = await supabase
       .from("link_tags")
       .select("link_id")
-      .eq("tag_id", tagRow?.id ?? -1);
+      .in("tag_id", tagIds);
 
-    const ids = (rows ?? []).map((r) => r.link_id);
+    // 3. リンクごとに、当てはまったタグの数を数える
+    const count = new Map<number, number>();
+    for (const r of rows ?? []) {
+      count.set(r.link_id, (count.get(r.link_id) ?? 0) + 1);
+    }
+
+    // 4. 選んだタグを全部持っているリンクだけ残す
+    const ids = [...count]
+      .filter(([, c]) => c === selected.length)
+      .map(([id]) => id);
+
     query = query.in("id", ids);
   }
 
@@ -100,7 +126,7 @@ export default async function Home({
           <Link
             href="/"
             className={`text-sm rounded-full px-3 py-1 border ${
-              !tag
+              selected.length === 0
                 ? "bg-gray-900 text-white border-gray-900"
                 : "bg-white border-gray-300 hover:bg-gray-100"
             }`}
@@ -110,9 +136,9 @@ export default async function Home({
           {(allTags ?? []).map((t) => (
             <Link
               key={t.name}
-              href={`/?tag=${encodeURIComponent(t.name)}`}
+              href={toggleHref(t.name)}
               className={`text-sm rounded-full px-3 py-1 border ${
-                tag === t.name
+                selected.includes(t.name)
                   ? "bg-gray-900 text-white border-gray-900"
                   : "bg-white border-gray-300 hover:bg-gray-100"
               }`}
@@ -122,7 +148,10 @@ export default async function Home({
           ))}
         </div>
 
-        <p className="text-sm text-gray-500 mb-2">{links.length} 件</p>
+        <p className="text-sm text-gray-500 mb-2">
+          {selected.length > 0 && `「${selected.join("」と「")}」の両方が付いたリンク：`}
+          {links.length} 件
+        </p>
 
         <ul className="space-y-3">
           {links.map((link) => (
@@ -146,8 +175,12 @@ export default async function Home({
                   {link.tags.map((t) => (
                     <Link
                       key={t.name}
-                      href={`/?tag=${encodeURIComponent(t.name)}`}
-                      className="text-xs bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 hover:bg-blue-100"
+                      href={toggleHref(t.name)}
+                      className={`text-xs rounded-full px-2 py-0.5 ${
+                        selected.includes(t.name)
+                          ? "bg-blue-600 text-white"
+                          : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      }`}
                     >
                       {t.name}
                     </Link>
