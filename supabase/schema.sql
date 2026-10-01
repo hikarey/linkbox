@@ -50,3 +50,11 @@ create policy "link_tags は誰でも追加できる"
 -- ポリシー：links は誰でも削除できる（公開前にログイン制限に変える）
 create policy "links は誰でも削除できる"
   on links for delete to anon using (true);
+
+-- ポリシー：編集用（公開前にログイン制限に変える）
+create policy "links は誰でも更新できる"
+  on links for update to anon
+  using (true) with check (true);
+create policy "link_tags は誰でも削除できる"
+  on link_tags for delete to anon
+  using (true);

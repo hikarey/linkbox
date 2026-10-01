@@ -109,12 +109,17 @@ export default async function Home({
                 ))}
               </div>
             </div>
-            <form action={deleteLink}>
-              <input type="hidden" name="id" value={link.id} />
-              <button type="submit" className="text-sm text-red-600">
-                削除
-              </button>
-            </form>
+            <div className="flex gap-3 shrink-0">
+              <Link href={`/edit/${link.id}`} className="text-sm text-gray-600">
+                編集
+              </Link>
+              <form action={deleteLink}>
+                <input type="hidden" name="id" value={link.id} />
+                <button type="submit" className="text-sm text-red-600">
+                  削除
+                </button>
+              </form>
+            </div>
           </li>
         ))}
       </ul>
