@@ -46,3 +46,7 @@ create policy "link_tags は誰でも読める"
   on link_tags for select to anon using (true);
 create policy "link_tags は誰でも追加できる"
   on link_tags for insert to anon with check (true);
+
+-- ポリシー：links は誰でも削除できる（公開前にログイン制限に変える）
+create policy "links は誰でも削除できる"
+  on links for delete to anon using (true);
