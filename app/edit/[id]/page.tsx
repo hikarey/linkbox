@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 import { updateLink } from "./actions";
 
 export default async function EditPage({
@@ -9,6 +9,7 @@ export default async function EditPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const supabase = await createClient();
 
   const { data: link } = await supabase
     .from("links")

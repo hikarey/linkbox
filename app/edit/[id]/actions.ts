@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 
 export async function updateLink(formData: FormData) {
+  const supabase = await createClient();
   const id = Number(formData.get("id"));
   const url = String(formData.get("url") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
@@ -48,7 +49,7 @@ export async function updateLink(formData: FormData) {
       .from("tags")
       .upsert(
         tagNames.map((name) => ({ name })),
-        { onConflict: "name", ignoreDuplicates: true }
+        { onConflict: "user_id,name", ignoreDuplicates: true }
       );
     if (tagError) console.error("タグ追加に失敗:", tagError.message);
 

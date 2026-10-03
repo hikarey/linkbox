@@ -2,12 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
+import { fetchYoutubeName } from "@/lib/youtube";
 
 export async function addLink(formData: FormData) {
+  const supabase = await createClient();
   const url = String(formData.get("url") ?? "").trim();
-  const title = String(formData.get("title") ?? "").trim();
   if (!url) return;
+
+  // 名前が空なら、YouTube から自動で取ってくる
+  let title = String(formData.get("title") ?? "").trim();
+  if (!title) {
+    title = (await fetchYoutubeName(url)) ?? "";
+  }
 
   const tagNames = [
     ...new Set(
@@ -34,7 +41,7 @@ export async function addLink(formData: FormData) {
       .from("tags")
       .upsert(
         tagNames.map((name) => ({ name })),
-        { onConflict: "name", ignoreDuplicates: true }
+        { onConflict: "user_id,name", ignoreDuplicates: true }
       );
     if (tagError) console.error("タグ追加に失敗:", tagError.message);
 
@@ -56,6 +63,7 @@ export async function addLink(formData: FormData) {
 
 // 削除（論理削除：deleted_at に今の日時を入れる）
 export async function deleteLink(formData: FormData) {
+  const supabase = await createClient();
   const id = Number(formData.get("id"));
   if (!id) return;
 
@@ -80,6 +88,7 @@ export async function deleteLink(formData: FormData) {
 
 // 元に戻す（deleted_at を空に戻す）
 export async function restoreLink(formData: FormData) {
+  const supabase = await createClient();
   const id = Number(formData.get("id"));
   if (!id) return;
 

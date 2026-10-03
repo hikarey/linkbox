@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 import { addLink, deleteLink, restoreLink } from "./actions";
+import { logout } from "./login/actions";
 
 function hostname(url: string) {
   try {
@@ -16,6 +17,7 @@ export default async function Home({
   searchParams: Promise<{ tag?: string | string[]; deleted?: string }>;
 }) {
   const { tag, deleted } = await searchParams;
+  const supabase = await createClient();
 
   // 選ばれているタグを、必ず配列の形にそろえる
   const selected = tag === undefined ? [] : Array.isArray(tag) ? tag : [tag];
@@ -79,7 +81,7 @@ export default async function Home({
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Linkbox</h1>
+        <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-bold">Linkbox</h1><form action={logout}><button className="text-sm text-gray-600 hover:underline">ログアウト</button></form></div>
 
         {deleted && (
           <div className="bg-gray-900 text-white rounded-xl px-4 py-3 mb-6 flex items-center justify-between">
