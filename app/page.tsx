@@ -14,9 +14,9 @@ function hostname(url: string) {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ tag?: string | string[]; deleted?: string }>;
+  searchParams: Promise<{ tag?: string | string[]; deleted?: string; exists?: string; tagged?: string }>;
 }) {
-  const { tag, deleted } = await searchParams;
+  const { tag, deleted, exists, tagged } = await searchParams;
   const supabase = await createClient();
 
   // 選ばれているタグを、必ず配列の形にそろえる
@@ -82,6 +82,15 @@ export default async function Home({
     <main className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-bold">Linkbox</h1><form action={logout}><button className="text-sm text-gray-600 hover:underline">ログアウト</button></form></div>
+
+        {exists && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4">
+            <span className="text-sm">{tagged ? "登録済みのリンクだったので、入力したタグを追加しました" : "このURLはすでに登録されています"}</span>
+            <Link href={`/edit/${exists}`} className="text-sm font-medium underline shrink-0">
+              編集する
+            </Link>
+          </div>
+        )}
 
         {deleted && (
           <div className="bg-gray-900 text-white rounded-xl px-4 py-3 mb-6 flex items-center justify-between">
