@@ -81,7 +81,7 @@ export default async function Home({
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-bold">Linkbox</h1><form action={logout}><button className="text-sm text-gray-600 hover:underline">ログアウト</button></form></div>
+        <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-bold">Linkbox</h1><div className="flex items-center gap-4"><Link href="/settings" className="text-sm text-gray-600 hover:underline">設定</Link><form action={logout}><button className="text-sm text-gray-600 hover:underline">ログアウト</button></form></div></div>
 
         {exists && (
           <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4">
