@@ -1,65 +1,87 @@
--- テーブル作成
+-- Linkbox のデータベース定義
+-- Supabase の SQL Editor で上から順に実行すると、空のプロジェクトに同じ構成を作れます。
+
+-- =========================================================
+-- テーブル
+-- =========================================================
+
+-- リンク
 create table links (
-  id bigint generated always as identity primary key,
-  url text not null unique,
-  platform text,
-  kind text,
-  title text,
-  memo text,
-  created_at timestamptz default now()
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  url        text not null,
+  platform   text,
+  kind       text,
+  title      text,
+  memo       text,
+  created_at timestamptz not null default now(),
+  deleted_at timestamptz            -- 論理削除：消した日時。null なら有効
 );
 
+-- URL の重複禁止は「同じユーザー」の「削除されていない行」の中だけ
+-- （削除済みの行があっても同じ URL を登録し直せる / 別のユーザーは同じ URL を登録できる）
+create unique index links_user_url_active
+  on links (user_id, url)
+  where deleted_at is null;
+
+-- タグ
 create table tags (
-  id bigint generated always as identity primary key,
-  name text not null unique
+  id      bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  name    text not null,
+  unique (user_id, name)            -- タグ名はユーザーごとに重複しない
 );
 
+-- リンクとタグの対応表（多対多）
 create table link_tags (
-  link_id bigint references links(id) on delete cascade,
-  tag_id bigint references tags(id) on delete cascade,
+  link_id bigint not null references links(id) on delete cascade,
+  tag_id  bigint not null references tags(id) on delete cascade,
   primary key (link_id, tag_id)
 );
 
--- RLS を有効化
-alter table links     enable row level security;
-alter table tags      enable row level security;
-alter table link_tags enable row level security;
+-- Chrome 拡張機能用の API トークン（トークンそのものは保存せず、SHA-256 のハッシュだけ持つ）
+create table api_tokens (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  token_hash text not null unique,
+  created_at timestamptz not null default now()
+);
 
--- ポリシー：links は誰でも読める
-create policy "links は誰でも読める"
-  on links for select
-  to anon
-  using (true);
+-- =========================================================
+-- Row Level Security（持ち主だけが自分の行を読み書きできる）
+-- =========================================================
 
--- ポリシー：links は誰でも追加できる（公開前にログイン制限に変える）
-create policy "links は誰でも追加できる"
-  on links for insert
-  to anon
-  with check (true);
+alter table links      enable row level security;
+alter table tags       enable row level security;
+alter table link_tags  enable row level security;
+alter table api_tokens enable row level security;
 
--- ポリシー：tags / link_tags の読み取りと追加（公開前にログイン制限に変える）
-create policy "tags は誰でも読める"
-  on tags for select to anon using (true);
-create policy "tags は誰でも追加できる"
-  on tags for insert to anon with check (true);
-create policy "link_tags は誰でも読める"
-  on link_tags for select to anon using (true);
-create policy "link_tags は誰でも追加できる"
-  on link_tags for insert to anon with check (true);
+-- links / tags：user_id が自分の行だけ
+create policy "自分のリンクだけ操作できる"
+  on links for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
--- ポリシー：links は誰でも削除できる（公開前にログイン制限に変える）
-create policy "links は誰でも削除できる"
-  on links for delete to anon using (true);
+create policy "自分のタグだけ操作できる"
+  on tags for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
--- ポリシー：編集用（公開前にログイン制限に変える）
-create policy "links は誰でも更新できる"
-  on links for update to anon
-  using (true) with check (true);
-create policy "link_tags は誰でも削除できる"
-  on link_tags for delete to anon
-  using (true);
+-- link_tags：user_id を持たないので、つながっているリンクとタグが両方とも自分のものかで判定する
+create policy "自分のリンクとタグの対応だけ操作できる"
+  on link_tags for all to authenticated
+  using (
+    exists (select 1 from links where links.id = link_id and links.user_id = (select auth.uid()))
+    and exists (select 1 from tags where tags.id = tag_id and tags.user_id = (select auth.uid()))
+  )
+  with check (
+    exists (select 1 from links where links.id = link_id and links.user_id = (select auth.uid()))
+    and exists (select 1 from tags where tags.id = tag_id and tags.user_id = (select auth.uid()))
+  );
 
--- 論理削除のための列と、URL重複禁止の作り直し
-alter table links add column deleted_at timestamptz;
-alter table links drop constraint links_url_key;
-create unique index links_url_active on links (url) where deleted_at is null;
+-- api_tokens：自分のトークンの発行・一覧・削除だけ
+-- （API ルートでの照合は RLS を通らない管理者キーで行い、コード側で user_id を絞っている）
+create policy "自分のトークンだけ操作できる"
+  on api_tokens for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
